@@ -232,6 +232,54 @@ where
     }
 }
 
+impl<H, SPI, SCLKPIN, MOSIPIN, MISOPIN> embedded_hal::spi::FullDuplex<u8>
+    for Spi<H, SPI, SCLKPIN, MOSIPIN, MISOPIN>
+where
+    SPI: SpiOps<H, SCLKPIN, MOSIPIN, MISOPIN>,
+    SCLKPIN: port::PinOps,
+    MOSIPIN: port::PinOps,
+    MISOPIN: port::PinOps,
+{
+    type Error = void::Void;
+
+    fn read(&mut self) -> nb::Result<u8, Self::Error> {
+        self.flush()?;
+        Ok(self.p.raw_read())
+    }
+
+    fn send(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
+        self.flush()?;
+        self.write_in_progress = true;
+        Ok(self.p.raw_write(byte))
+    }
+}
+
+impl<H, SPI, SCLKPIN, MOSIPIN, MISOPIN> embedded_hal::blocking::spi::transfer::Default<u8>
+    for Spi<H, SPI, SCLKPIN, MOSIPIN, MISOPIN>
+where
+    SPI: SpiOps<H, SCLKPIN, MOSIPIN, MISOPIN>,
+    SCLKPIN: port::PinOps,
+    MOSIPIN: port::PinOps,
+    MISOPIN: port::PinOps,
+{
+}
+
+impl<H, SPI, SCLKPIN, MOSIPIN, MISOPIN> embedded_hal::blocking::spi::write::Default<u8>
+    for Spi<H, SPI, SCLKPIN, MOSIPIN, MISOPIN>
+where
+    SPI: SpiOps<H, SCLKPIN, MOSIPIN, MISOPIN>,
+    SCLKPIN: port::PinOps,
+    MOSIPIN: port::PinOps,
+    MISOPIN: port::PinOps,
+{
+}
+
+//
+
+/// This structure binds an [Spi] bus with a `channel_select` pin `CSPIN` .  Upon construction the
+/// channel select pin is pulled low to begin an SPI transaction.
+/// When the object is [Drop]-ped, the channel select pin is pulled high to end the SPI transaction.
+/// At that point another device may use the SPI bus.
 pub struct SpiTransaction<'a, H, SPI, SCLKPIN, MOSIPIN, MISOPIN, CSPIN: port::PinOps> {
     spi: &'a mut Spi<H, SPI, SCLKPIN, MOSIPIN, MISOPIN>,
     channel_select: &'a mut port::Pin<port::mode::Output, CSPIN>,
