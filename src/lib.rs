@@ -1,11 +1,27 @@
+//! Use the [default_spi] macro to instantiate an [Spi] object from the [arduino_hal::pac::Peripherals], and [arduino_hal::Pins] objects.
+//! ```
+//! let dp = arduino_hal::Peripherals::take().unwrap();
+//! let pins = arduino_hal::pins!(dp);
+//! let mut spi = arduino_spi::default_spi!(dp, pins, Settings::default());
+//! ```
+
 #![no_std]
 
-//! SPI Implementation
-//use crate::port;
 use avr_hal_generic::port;
 use core::marker::PhantomData;
 use embedded_hal::spi;
 use void;
+
+#[cfg(not(feature = "board-selected"))]
+compile_error!(
+    "This crate requires you to specify your target Arduino board as a feature.
+
+    Please select one of the following
+
+    * atmega2560
+    * atmega328p
+    "
+);
 
 /// Oscillator Clock Frequency division options.
 ///
@@ -121,7 +137,7 @@ impl<CSPIN: port::PinOps> embedded_hal::digital::v2::ToggleableOutputPin for Chi
 /// Behavior for a SPI interface.
 ///
 /// Stores the SPI peripheral for register access.  In addition, it takes
-/// ownership of the MOSI and MISO pins to ensure they are in the correct mode.
+/// ownership of the SCLK, MOSI, and MISO pins to ensure they are in the correct mode.
 /// Instantiate with the `new` method.
 pub struct Spi<H, SPI, SCLKPIN, MOSIPIN, MISOPIN> {
     p: SPI,
@@ -330,6 +346,7 @@ where
     MISOPIN: port::PinOps,
     CSPIN: port::PinOps,
 {
+    /// simultaneously sends the `to_send` byte, and returns the byte that is received from the peripheral.
     pub fn duplex_transfer(&mut self, to_send: u8) -> u8 {
         nb::block!(self.spi.flush()).unwrap();
         self.write(to_send);
@@ -473,32 +490,95 @@ macro_rules! impl_spi {
         }
     };
 }
-//use arduino_hal::hal::Atmega;
 
+#[cfg(feature = "atmega328p")]
 impl_spi! {
-    hal: arduino_hal::hal::Atmega,
-    peripheral:
-    //atmega_hal::pac::
-    arduino_hal::pac::SPI,
-    sclk: arduino_hal::hal::port::PB5,
-    mosi: arduino_hal::hal::port::PB3,
-    miso: arduino_hal::hal::port::PB4,
+    hal: atmega_hal::Atmega,
+    peripheral:arduino_hal::pac::SPI,
+    sclk: atmega_hal::port::PB5,
+    mosi: atmega_hal::port::PB3,
+    miso: atmega_hal::port::PB4,
 }
 
+#[cfg(feature = "atmega328p")]
 pub type Spi0 = Spi<
-    arduino_hal::hal::Atmega,
+    atmega_hal::Atmega,
     arduino_hal::pac::SPI,
-    arduino_hal::hal::port::PB5,
-    arduino_hal::hal::port::PB3,
-    arduino_hal::hal::port::PB4,
+    atmega_hal::port::PB5,
+    atmega_hal::port::PB3,
+    atmega_hal::port::PB4,
 >;
 
+#[cfg(feature = "atmega328p")]
 pub type SpiTransaction0<'a, CS> = SpiTransaction<
     'a,
-    arduino_hal::hal::Atmega,
+    atmega_hal::Atmega,
     arduino_hal::pac::SPI,
-    arduino_hal::hal::port::PB5,
-    arduino_hal::hal::port::PB3,
-    arduino_hal::hal::port::PB4,
+    atmega_hal::port::PB5,
+    atmega_hal::port::PB3,
+    atmega_hal::port::PB4,
     CS,
 >;
+
+#[cfg(feature = "atmega328p")]
+#[macro_export]
+macro_rules! default_spi {
+    ($dp:expr, $pins:expr, $settings:expr) => {
+        $crate::Spi0::new(
+            $dp.SPI,
+            $pins.d13.into_output(),
+            $pins.d11.into_output(),
+            $pins.d12.into_pull_up_input(),
+            $settings,
+        )
+    };
+}
+
+#[cfg(any(feature = "atmega2560", feature = "atmega32u4"))]
+impl_spi! {
+    hal: atmega_hal::Atmega,
+    peripheral: atmega_hal::pac::SPI,
+    sclk: atmega_hal::port::PB1,
+    mosi: atmega_hal::port::PB2,
+    miso: atmega_hal::port::PB3,
+}
+
+#[cfg(any(feature = "atmega2560", feature = "atmega32u4"))]
+pub type Spi0 = Spi<
+    atmega_hal::Atmega,
+    atmega_hal::pac::SPI,
+    atmega_hal::port::PB1,
+    atmega_hal::port::PB2,
+    atmega_hal::port::PB3,
+>;
+
+#[cfg(any(feature = "atmega2560", feature = "atmega32u4"))]
+pub type SpiTransaction0<'a, CS> = SpiTransaction<
+    'a,
+    atmega_hal::Atmega,
+    atmega_hal::pac::SPI,
+    atmega_hal::port::PB1,
+    atmega_hal::port::PB2,
+    atmega_hal::port::PB3,
+    CS,
+>;
+
+/// use this macro to instantiate an [Spi] object from the [arduino_hal::pac::Peripherals], and [arduino_hal::Pins] objects.
+/// ```
+/// let dp = arduino_hal::Peripherals::take().unwrap();
+/// let pins = arduino_hal::pins!(dp);
+/// let mut spi = arduino_spi::default_spi!(dp, pins, Settings::default());
+/// ```
+#[cfg(any(feature = "atmega2560", feature = "atmega32u4"))]
+#[macro_export]
+macro_rules! default_spi {
+    ($dp:expr, $pins:expr, $settings:expr) => {
+        $crate::Spi0::new(
+            $dp.SPI,
+            $pins.d52.into_output(),
+            $pins.d51.into_output(),
+            $pins.d50.into_pull_up_input(),
+            $settings,
+        )
+    };
+}
