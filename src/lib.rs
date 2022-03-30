@@ -106,7 +106,7 @@ pub trait SpiOps<H, SCLK, MOSI, MISO> {
 pub struct ChipSelectPin<CSPIN>(port::Pin<port::mode::Output, CSPIN>);
 
 impl<CSPIN: port::PinOps> embedded_hal::digital::v2::OutputPin for ChipSelectPin<CSPIN> {
-    type Error = crate::void::Void;
+    type Error = void::Void;
     fn set_low(&mut self) -> Result<(), Self::Error> {
         self.0.set_low();
         Ok(())
@@ -127,7 +127,7 @@ impl<CSPIN: port::PinOps> embedded_hal::digital::v2::StatefulOutputPin for ChipS
 }
 
 impl<CSPIN: port::PinOps> embedded_hal::digital::v2::ToggleableOutputPin for ChipSelectPin<CSPIN> {
-    type Error = crate::void::Void;
+    type Error = void::Void;
     fn toggle(&mut self) -> Result<(), Self::Error> {
         self.0.toggle();
         Ok(())
@@ -217,6 +217,7 @@ where
     /// Disable the SPI device and release ownership of the peripheral
     /// and pins.  Instance can no-longer be used after this is
     /// invoked.
+    #[allow(clippy::type_complexity)]
     pub fn release(
         mut self,
     ) -> (
@@ -266,7 +267,8 @@ where
     fn send(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
         self.flush()?;
         self.write_in_progress = true;
-        Ok(self.p.raw_write(byte))
+        self.p.raw_write(byte);
+        Ok(())
     }
 }
 
@@ -494,7 +496,7 @@ macro_rules! impl_spi {
 #[cfg(feature = "atmega328p")]
 impl_spi! {
     hal: atmega_hal::Atmega,
-    peripheral:arduino_hal::pac::SPI,
+    peripheral:atmega_hal::pac::SPI,
     sclk: atmega_hal::port::PB5,
     mosi: atmega_hal::port::PB3,
     miso: atmega_hal::port::PB4,
@@ -503,7 +505,7 @@ impl_spi! {
 #[cfg(feature = "atmega328p")]
 pub type Spi0 = Spi<
     atmega_hal::Atmega,
-    arduino_hal::pac::SPI,
+    atmega_hal::pac::SPI,
     atmega_hal::port::PB5,
     atmega_hal::port::PB3,
     atmega_hal::port::PB4,
@@ -513,7 +515,7 @@ pub type Spi0 = Spi<
 pub type SpiTransaction0<'a, CS> = SpiTransaction<
     'a,
     atmega_hal::Atmega,
-    arduino_hal::pac::SPI,
+    atmega_hal::pac::SPI,
     atmega_hal::port::PB5,
     atmega_hal::port::PB3,
     atmega_hal::port::PB4,
